@@ -1,6 +1,6 @@
 # buckshot roulette w shock collars
 
-quite literally just filters the log for `death request on instance: yourName` which buckshot roulette writes when you are shot in an online game, and makes an openshock API request when it finds it
+quite literally just filters the log for `death request on instance: yourName` which buckshot roulette writes when you are shot in an online game, and makes an openshock API request when it finds it  
 completely untested but it's late so i'm going to bed
 
 just fill out `woaw.toml`
