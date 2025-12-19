@@ -1,13 +1,17 @@
 use env_logger::Env;
 use log::{error, info};
-use logwatcher::{LogWatcher, LogWatcherAction};
 use rzap_ng::{api_builder::OpenShockAPIBuilder, data_type::ControlType};
 use serde::Deserialize;
 use std::{
     env::{consts, home_dir},
     fs::File,
-    io::Read,
+    io::{Error, Read},
+    process::Stdio,
     sync::Arc,
+};
+use tokio::{
+    io::{AsyncBufReadExt, BufReader},
+    process::Command,
 };
 
 #[derive(Deserialize, Debug, Clone)]
@@ -17,10 +21,11 @@ pub struct Config {
     openshock_token: String,
     shock_intensity: u8,
     shock_duration: u16,
+    game_path: Option<String>,
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Error> {
     let env = Env::default().default_filter_or("info");
     env_logger::Builder::from_env(env).init();
 
@@ -46,48 +51,57 @@ async fn main() {
             .unwrap(),
     );
 
-    let log_path = {
+    let game_path = config_holder.game_path.clone().unwrap_or({
         match consts::OS {
             "linux" => {
                 home_dir().unwrap_or_default().to_str().unwrap().to_owned()
-                    + "/.local/share/godot/app_userdata/Buckshot Roulette/logs/godot.log"
+                    + "/.local/share/Steam/steamapps/common/Buckshot Roulette/Buckshot Roulette_linux/Buckshot Roulette.x86_64"
             }
             "windows" => {
-                home_dir().unwrap_or_default().to_str().unwrap().to_owned()
-                    + "/AppData/Roaming/Godot/app_userdata/Buckshot Roulette/logs/godot.log"
+                "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Buckshot Roulette\\Buckshot Roulette.exe"
+                    .to_owned()
             }
             _ => panic!("what the fuck else would you be using"),
         }
-    };
+    });
 
-    let death_indication = "death request on instance: ".to_owned() + &config_holder.own_name;
+    let death_indication = format!("death request on instance: {}", config_holder.own_name);
 
-    let mut log_watcher = LogWatcher::register(&log_path).unwrap();
+    let mut child = Command::new(game_path)
+        .env("SteamAppId", "2835570")
+        .env("STEAM_APP_ID", "2835570")
+        .env("STEAM_RUNTIME", "1")
+        .stdout(Stdio::piped())
+        .spawn()?;
 
-    info!("starting to monitor logs at {log_path}");
-    log_watcher.watch(&mut move |line: String| {
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| std::io::Error::other("couldn't get stdout"))?;
+
+    let mut reader = BufReader::new(stdout).lines();
+
+    while let Some(line) = reader.next_line().await? {
         if line.contains(&death_indication) {
             info!("get shocked lmao");
             let openshock_api = Arc::clone(&openshock_api);
             let config_holder = config_holder.clone();
 
-            // ugh
-            tokio::spawn(async move {
-                if let Err(e) = openshock_api
-                    .post_control(
-                        config_holder.shocker_id,
-                        ControlType::Shock,
-                        config_holder.shock_intensity,
-                        config_holder.shock_duration,
-                        Some(config_holder.openshock_token.clone()),
-                    )
-                    .await
-                {
-                    error!("Failed to trigger shock: {:?}", e);
-                }
-            });
+            match openshock_api
+                .post_control(
+                    config_holder.shocker_id,
+                    ControlType::Shock,
+                    config_holder.shock_intensity,
+                    config_holder.shock_duration,
+                    Some(config_holder.openshock_token.clone()),
+                )
+                .await
+            {
+                Ok(_) => {}
+                Err(e) => error!("couldn't shock :kms: error: {e}"),
+            }
         }
+    }
 
-        LogWatcherAction::None
-    });
+    Ok(())
 }

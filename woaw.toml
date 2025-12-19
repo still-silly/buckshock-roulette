@@ -1,5 +1,6 @@
-own_name = "sophie"
+own_name = "matt"
 shocker_id = "some long ass uuid"
 openshock_token = "an openshock token"
 shock_intensity = 50                   # 0-100 i think
-shock_duration = 200                   # ms probably
+shock_duration = 20                    # ms probably
+#game_path = "/some/weird/ass/path" # optionally override the game path
