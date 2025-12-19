@@ -7,7 +7,6 @@ use std::{
     fs::File,
     io::{Error, Read},
     process::Stdio,
-    sync::Arc,
 };
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -43,13 +42,11 @@ async fn main() -> Result<(), Error> {
     let app_name = env!("CARGO_PKG_NAME");
     let app_version = env!("CARGO_PKG_VERSION");
 
-    let openshock_api = Arc::new(
-        OpenShockAPIBuilder::new()
-            .with_app(app_name.to_string(), Some(app_version.to_string()))
-            .with_default_api_token(config_holder.openshock_token.clone())
-            .build()
-            .unwrap(),
-    );
+    let openshock_api = OpenShockAPIBuilder::new()
+        .with_app(app_name.to_string(), Some(app_version.to_string()))
+        .with_default_api_token(config_holder.openshock_token.clone())
+        .build()
+        .unwrap();
 
     let game_path = config_holder.game_path.clone().unwrap_or({
         match consts::OS {
@@ -84,7 +81,6 @@ async fn main() -> Result<(), Error> {
     while let Some(line) = reader.next_line().await? {
         if line.contains(&death_indication) {
             info!("get shocked lmao");
-            let openshock_api = Arc::clone(&openshock_api);
             let config_holder = config_holder.clone();
 
             match openshock_api
