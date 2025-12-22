@@ -1,7 +1,7 @@
 # buckshot roulette w shock collars
 
 quite literally just filters `STDOUT` for `death request on instance: yourName` which buckshot roulette writes when you are shot in an online game, and makes an openshock API request when it finds it  
-tested on linux
+tested on linux, probably works on windows
 
 to use, fill out `woaw.toml`
 
